@@ -1,16 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Heart, Music, Calendar, Share2, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Confession } from '../lib/supabase';
 import { createSpotifyEmbedUrl } from '../utils/spotify';
 
 interface ConfessionCardProps {
-  confession: Confession;
+  confession: Confession & { 
+    like_count?: number; 
+    user_has_liked?: boolean; 
+  };
   showActions?: boolean;
+  onLike?: (confessionId: string, isLiked: boolean) => Promise<void>;
 }
 
-export function ConfessionCard({ confession, showActions = true }: ConfessionCardProps) {
+export function ConfessionCard({ confession, showActions = true, onLike }: ConfessionCardProps) {
   const navigate = useNavigate();
+  const [isLiked, setIsLiked] = useState(confession.user_has_liked || false);
+  const [likeCount, setLikeCount] = useState(confession.like_count || 0);
+  const [isLiking, setIsLiking] = useState(false);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
@@ -20,6 +27,30 @@ export function ConfessionCard({ confession, showActions = true }: ConfessionCar
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const handleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click when liking
+    
+    if (isLiking || !onLike) return;
+    
+    setIsLiking(true);
+    const newLikedState = !isLiked;
+    
+    // Optimistic update
+    setIsLiked(newLikedState);
+    setLikeCount(prev => newLikedState ? prev + 1 : prev - 1);
+    
+    try {
+      await onLike(confession.id, newLikedState);
+    } catch (error) {
+      // Revert optimistic update on error
+      setIsLiked(!newLikedState);
+      setLikeCount(prev => newLikedState ? prev - 1 : prev + 1);
+      console.error('Error liking confession:', error);
+    } finally {
+      setIsLiking(false);
+    }
   };
 
   const handleShare = async (e: React.MouseEvent) => {
@@ -103,21 +134,59 @@ export function ConfessionCard({ confession, showActions = true }: ConfessionCar
         </div>
 
         {showActions && (
-          <button
-            onClick={handleShare}
-            className={`p-2 rounded-full transition-all duration-200 group/share opacity-70 group-hover:opacity-100 ${
-              confession.is_verified
-                ? 'bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-800/40 hover:text-blue-600 dark:hover:text-blue-400'
-                : 'bg-gray-100 dark:bg-gray-800 hover:bg-pink-100 dark:hover:bg-pink-900/30 hover:text-pink-600 dark:hover:text-pink-400'
-            }`}
-            title="Share confession"
-          >
-            <Share2 className={`h-4 w-4 transition-all duration-200 group-hover/share:scale-110 ${
-              confession.is_verified
-                ? 'text-blue-600 dark:text-blue-400 group-hover/share:text-blue-700 dark:group-hover/share:text-blue-300'
-                : 'text-gray-600 dark:text-gray-400 group-hover/share:text-pink-600 dark:group-hover/share:text-pink-400'
-            }`} />
-          </button>
+          <div className="flex items-center space-x-2">
+            {/* Like Button */}
+            <button
+              onClick={handleLike}
+              disabled={isLiking}
+              className={`flex items-center space-x-1 p-2 rounded-full transition-all duration-200 group/like opacity-70 group-hover:opacity-100 ${
+                isLiked
+                  ? confession.is_verified
+                    ? 'bg-blue-500 hover:bg-blue-600'
+                    : 'bg-pink-500 hover:bg-pink-600'
+                  : confession.is_verified
+                    ? 'bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-800/40'
+                    : 'bg-gray-100 dark:bg-gray-800 hover:bg-pink-100 dark:hover:bg-pink-900/30'
+              } ${isLiking ? 'scale-95' : 'hover:scale-105'}`}
+              title={isLiked ? "Unlike confession" : "Like confession"}
+            >
+              <Heart className={`h-4 w-4 transition-all duration-200 ${
+                isLiked
+                  ? 'text-white fill-current'
+                  : confession.is_verified
+                    ? 'text-blue-600 dark:text-blue-400 group-hover/like:text-blue-700 dark:group-hover/like:text-blue-300'
+                    : 'text-gray-600 dark:text-gray-400 group-hover/like:text-pink-600 dark:group-hover/like:text-pink-400'
+              } ${isLiking ? 'scale-90' : 'group-hover/like:scale-110'}`} />
+              {likeCount > 0 && (
+                <span className={`text-xs font-medium transition-colors duration-200 ${
+                  isLiked
+                    ? 'text-white'
+                    : confession.is_verified
+                      ? 'text-blue-600 dark:text-blue-400'
+                      : 'text-gray-600 dark:text-gray-400'
+                }`}>
+                  {likeCount}
+                </span>
+              )}
+            </button>
+
+            {/* Share Button */}
+            <button
+              onClick={handleShare}
+              className={`p-2 rounded-full transition-all duration-200 group/share opacity-70 group-hover:opacity-100 ${
+                confession.is_verified
+                  ? 'bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-800/40 hover:text-blue-600 dark:hover:text-blue-400'
+                  : 'bg-gray-100 dark:bg-gray-800 hover:bg-pink-100 dark:hover:bg-pink-900/30 hover:text-pink-600 dark:hover:text-pink-400'
+              }`}
+              title="Share confession"
+            >
+              <Share2 className={`h-4 w-4 transition-all duration-200 group-hover/share:scale-110 ${
+                confession.is_verified
+                  ? 'text-blue-600 dark:text-blue-400 group-hover/share:text-blue-700 dark:group-hover/share:text-blue-300'
+                  : 'text-gray-600 dark:text-gray-400 group-hover/share:text-pink-600 dark:group-hover/share:text-pink-400'
+              }`} />
+            </button>
+          </div>
         )}
       </div>
 
@@ -169,15 +238,28 @@ export function ConfessionCard({ confession, showActions = true }: ConfessionCar
         </div>
       )}
 
-      {/* Verified badge indicator at bottom */}
-      {confession.is_verified && (
-        <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-800/50">
-          <div className="flex items-center justify-center space-x-2 text-xs text-blue-600 dark:text-blue-400">
-            <Shield className="h-3 w-3" />
-            <span>Verified Confession</span>
+      {/* Stats and verified badge */}
+      <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+        <div className="flex items-center justify-between">
+          {/* Like count display */}
+          <div className="flex items-center space-x-4">
+            {likeCount > 0 && (
+              <div className="flex items-center space-x-1 text-sm text-gray-500 dark:text-gray-400">
+                <Heart className="h-3 w-3 fill-current text-pink-500" />
+                <span>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</span>
+              </div>
+            )}
           </div>
+
+          {/* Verified badge */}
+          {confession.is_verified && (
+            <div className="flex items-center space-x-2 text-xs text-blue-600 dark:text-blue-400">
+              <Shield className="h-3 w-3" />
+              <span>Verified Confession</span>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Subtle indicator that card is clickable */}
       <div className="text-center mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
