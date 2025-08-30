@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Sparkles, RefreshCw } from 'lucide-react';
+import { Heart, Sparkles, RefreshCw, X, ExternalLink, Coffee } from 'lucide-react';
 import { supabase, Confession } from '../lib/supabase';
 import { ConfessionForm } from '../components/ConfessionForm';
 import { ConfessionCard } from '../components/ConfessionCard';
@@ -10,6 +10,7 @@ export function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [newConfessionAlert, setNewConfessionAlert] = useState(false);
+  const [showSupportPopup, setShowSupportPopup] = useState(false);
 
   const loadConfessions = async () => {
     try {
@@ -30,6 +31,16 @@ export function HomePage() {
 
   useEffect(() => {
     loadConfessions();
+
+    // Check if popup has been shown before
+    const hasShownPopup = sessionStorage.getItem('confessworld_support_popup_shown');
+    if (!hasShownPopup) {
+      // Show popup after a short delay for better UX
+      const timer = setTimeout(() => {
+        setShowSupportPopup(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
 
     // Set up real-time subscription
     const channel = supabase
@@ -62,6 +73,16 @@ export function HomePage() {
     };
   }, []);
 
+  const handleClosePopup = () => {
+    setShowSupportPopup(false);
+    sessionStorage.setItem('confessworld_support_popup_shown', 'true');
+  };
+
+  const handleDonate = () => {
+    window.open('https://sociabuzz.com/azltechnologynusantara/tribe', '_blank');
+    handleClosePopup();
+  };
+
   const filteredConfessions = confessions.filter(
     (confession) =>
       confession.target_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -70,10 +91,71 @@ export function HomePage() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      {/* Support Popup */}
+      {showSupportPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-md w-full mx-4 relative overflow-hidden">
+            {/* Close Button */}
+            <button
+              onClick={handleClosePopup}
+              className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors z-10"
+            >
+              <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+            </button>
+
+            {/* Popup Content */}
+            <div className="p-8 text-center">
+              {/* Icon */}
+              <div className="inline-block bg-gradient-to-r from-pink-500 to-purple-600 p-4 rounded-full mb-6">
+                <Coffee className="h-8 w-8 text-white" />
+              </div>
+
+              {/* Title */}
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                Dukung ConfessWorld! 💕
+              </h3>
+
+              {/* Description */}
+              <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+                Halo! Terima kasih sudah menggunakan ConfessWorld. Website ini dibuat dengan cinta untuk membantu semua orang mengekspresikan perasaan mereka.
+              </p>
+
+              <p className="text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">
+                Jika kamu menikmati platform ini, pertimbangkan untuk mendukung perkembangan kami agar bisa terus memberikan layanan terbaik! 🌟
+              </p>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col space-y-3">
+                <button
+                  onClick={handleDonate}
+                  className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-3 px-6 rounded-2xl hover:from-pink-600 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
+                >
+                  <Heart className="h-5 w-5" />
+                  <span>Dukung via Sociabuzz</span>
+                  <ExternalLink className="h-4 w-4" />
+                </button>
+
+                <button
+                  onClick={handleClosePopup}
+                  className="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium py-3 px-6 rounded-2xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200"
+                >
+                  Mungkin Lain Kali
+                </button>
+              </div>
+
+              {/* Small Note */}
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
+                Popup ini hanya muncul sekali per sesi
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <div className="text-center mb-16">
         <div className="inline-block bg-black dark:bg-white p-6 rounded-full mb-8">
-          <Heart className="h-12 w-12 text-white" />
+          <Heart className="h-12 w-12 text-white dark:text-black" />
         </div>
         <h1 className="text-6xl font-bold text-black dark:text-white mb-6">
           ConfessWorld
